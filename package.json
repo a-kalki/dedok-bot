@@ -25,5 +25,9 @@
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "fs-extra": "^11.3.0",
+    "telegraf": "^4.16.3"
   }
 }
