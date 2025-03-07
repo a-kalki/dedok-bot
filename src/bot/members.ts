@@ -69,14 +69,23 @@ membersBot.on("new_chat_members", async (ctx: Context) => {
 
 // Запуск бота
 export function runMembersBot(runMode: RunMode): void {
-  if (runMode === 'production')
-    membersBot.telegram.setWebhook(botUrlSuffix + "/dedok_members_bot");
-  membersBot.launch().then(() => console.log("🚀 Бот dedok_members_bot запущен!"));
+  const nm = 'dedok_members_bot';
+  if (runMode === 'production') {
+    console.log('Установка webhook бота:', nm);
+    membersBot.telegram.setWebhook(botUrlSuffix + "/" + nm)
+    .then(() => console.log('webhook бота установлен:', nm));
+  }
+  membersBot.launch().then(() => console.log(`🚀 Бот ${nm} запущен!`));
 }
 
 export function stopMembersBot(runMode: RunMode): void {
+  const nm = 'dedok_members_bot';
+  if (runMode === 'production') {
+    console.log('Удаление webhook бота:', nm);
+    membersBot.telegram.deleteWebhook()
+    .then(() => console.log('webhook бота удален:', nm));
+  }
   if (runMode === 'production')
-    membersBot.telegram.deleteWebhook();
 
   membersBot.stop();
   console.log("🚀 Бот dedok_members_bot остановлен!");
