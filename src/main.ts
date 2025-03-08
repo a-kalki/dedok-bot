@@ -3,12 +3,10 @@ import { runMembersBot, stopMembersBot } from "./bot/members";
 
 function main(): void {
   runMembersBot(runMode);
-  // runActionsBot();
 }
 
 async function stop(): Promise<void> {
   stopMembersBot(runMode);
-  // stopActionsBot();
 }
 
 main();
