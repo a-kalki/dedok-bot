@@ -6,7 +6,7 @@ function main(): void {
 }
 
 async function stop(): Promise<void> {
-  stopMembersBot(runMode);
+  await stopMembersBot(runMode);
 }
 
 main();

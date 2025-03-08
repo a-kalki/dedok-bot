@@ -1,30 +1,28 @@
 import { USERS_FILE } from "../constants";
-import { readFromFile, pushToFile, saveToFile } from "../repo/json";
+import { loadCache, updateInCache, readFromCache, getAllFromCache } from "../repo/json";
 import type { UserData } from "../types";
+
+// Загрузка данных в кеш при запуске
+loadCache(USERS_FILE);
 
 // Функция для обновления данных пользователя
 export async function updateOrSave(userData: UserData): Promise<void> {
-  const allUsers = await getAllUsers();
-  const existingUserIndex = allUsers.findIndex((user) => user.id === userData.id);
+  const existingUser = readFromCache<UserData>(userData.id);
 
-  if (existingUserIndex === -1) {
+  if (!existingUser) {
     userData.joinedAt = new Date().toISOString();
-    await pushToFile(USERS_FILE, userData);
-    return;
+  } else {
+    userData.joinedAt = existingUser.joinedAt;
+    userData.updatedAt = new Date().toISOString();
   }
 
-  const findedUser = allUsers[existingUserIndex];
-  allUsers[existingUserIndex] = {
-    ...findedUser,
-    ...userData,
-  };
-  await saveToFile(USERS_FILE, allUsers);
+  await updateInCache(USERS_FILE, userData.id, userData);
 }
 
 export async function findUser(userId: string): Promise<UserData | undefined> {
-  return (await getAllUsers()).find((user) => user.id === userId);
+  return readFromCache<UserData>(userId);
 }
 
-export async function getAllUsers(): Promise<UserData[]> {
-  return await readFromFile<UserData>(USERS_FILE) || [];
+export async function getAllUsers(): Promise<{ [key: string]: UserData }> {
+  return getAllFromCache<UserData>();
 }

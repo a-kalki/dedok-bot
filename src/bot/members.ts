@@ -76,7 +76,7 @@ export async function runMembersBot(runMode: RunMode): Promise<void> {
     await membersBot.telegram.setWebhook(botUrlSuffix + "/" + nm)
     console.log('webhook бота установлен:', nm)
   }
-  await membersBot.launch();
+  membersBot.launch();
   console.log(`🚀 Бот ${nm} запущен!`);
 }
 

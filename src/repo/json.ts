@@ -1,23 +1,34 @@
 import fs from "fs-extra";
 
-// Функция добавления новых данных в файл
-export async function pushToFile<T>(filePath: string, data: T): Promise<void> {
-  let existingData: T[] = [];
+// Кеш для хранения данных в памяти
+let cache: { [key: string]: any } = {};
+
+// Функция для загрузки данных из файла в кеш
+export async function loadCache(filePath: string): Promise<void> {
   if (await fs.pathExists(filePath)) {
-    existingData = await fs.readJson(filePath);
+    cache = await fs.readJson(filePath);
+  } else {
+    cache = {};
   }
-  existingData.push(data);
-  await fs.writeJson(filePath, existingData, { spaces: 2 });
 }
 
-// Функция сохранения данных в файл
-export async function saveToFile<T>(filePath: string, data: T): Promise<void> {
-  await fs.writeJson(filePath, data, { spaces: 2 });
+// Функция для сохранения данных из кеша в файл
+export async function saveCache(filePath: string): Promise<void> {
+  await fs.writeJson(filePath, cache, { spaces: 2 });
 }
 
-export async function readFromFile<T>(filePath: string): Promise<T[]> {
-  if (!(await fs.pathExists(filePath))) {
-    return [];
-  }
-  return await fs.readJson(filePath);
+// Функция для добавления или обновления данных в кеше
+export async function updateInCache<T>(filePath: string, key: string, data: T): Promise<void> {
+  cache[key] = data;
+  await saveCache(filePath);
+}
+
+// Функция для чтения данных из кеша
+export function readFromCache<T>(key: string): T | undefined {
+  return cache[key];
+}
+
+// Функция для получения всех данных из кеша
+export function getAllFromCache<T>(): { [key: string]: T } {
+  return cache;
 }
