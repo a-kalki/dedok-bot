@@ -1,12 +1,11 @@
-import { runMode } from "./constants";
-import { runMembersBot, stopMembersBot } from "./bot/members";
+import { runBot, stopBot } from "./bot/helper";
 
 function main(): void {
-  runMembersBot(runMode);
+  runBot();
 }
 
 async function stop(): Promise<void> {
-  await stopMembersBot(runMode);
+  await stopBot();
 }
 
 main();

@@ -16,17 +16,28 @@ function getRunMode(): RunMode {
   throw Error(`NODE_ENV=${envMode} is not valid`);
 }
 
-export const MEMBERS_BOT_TOKEN = getEnvVar('MEMBERS_BOT_TOKEN');
-export const MEMBERS_BOT_NAME = getEnvVar('MEMBERS_BOT_NAME');
+function throwErr(): never {
+  throw Error('При загрузке переменных окружения произошла ошибка');
+}
 
-export const DEDOK_GROUP_ID = getEnvVar('DEDOK_GROUP_ID');
+export const RUN_MODE = getRunMode();
 
-export const DEDOK_GROUP_NAME = getEnvVar('DEDOK_GROUP_NAME');
+export const MODE_IS_PROD = RUN_MODE === 'production';
+
+export const BOT_TOKEN = getEnvVar(MODE_IS_PROD ? 'MEMBERS_BOT_TOKEN' : 'DEDOK_TEST_BOT_TOKEN');
+
+export const BOT_NAME = getEnvVar(MODE_IS_PROD ? 'MEMBERS_BOT_NAME' : 'DEDOK_TEST_BOT_NAME');
+
+export const DEDOK_GROUP_ID = getEnvVar(MODE_IS_PROD ? 'DEDOK_GROUP_ID': 'DEDOK_TEST_GROUP_ID');
+
+export const DEDOK_GROUP_NAME = getEnvVar(MODE_IS_PROD ? 'DEDOK_GROUP_NAME' : 'DEDOK_TEST_GROUP_NAME');
+
+export const DEDOK_ACTIONS_TOPIC_ID = Number(getEnvVar(
+  MODE_IS_PROD ? 'DEDOK_ACTIONS_TOPIC_ID' : 'DEDOK_TEST_ACTIONS_TOPIC_ID'
+));
 
 export const USERS_FILE = "json/users.json";
 
-export const membersBot = new Telegraf(MEMBERS_BOT_TOKEN);
+export const BOT = new Telegraf(BOT_TOKEN);
 
-export const botUrlSuffix = getEnvVar('FULL_DOMAIN') + '/bot';
-
-export const runMode = getRunMode();
+export const BOT_URL_SUFFIX = getEnvVar('FULL_DOMAIN') + '/bot';
