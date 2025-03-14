@@ -1,4 +1,5 @@
-import { BOT, DEDOK_GROUP_ID, DEDOK_ACTIONS_TOPIC_ID } from "../constants";
+import { Telegraf } from "telegraf";
+import { BOT, DEDOK_GROUP_ID, DEDOK_ACTIONS_TOPIC_ID, getEnvVar, MODE_IS_PROD } from "../constants";
 import { userRepo } from "../repo/user-repo";
 import type { UserData } from "../types";
 
@@ -13,15 +14,35 @@ type UserWithWeight = UserData & {
   ticketRange: [number, number]; // Диапазон номеров (лотерейных билетов)
 };
 
-async function actionsBotResult(): Promise<void> {
-  const allUsers = await userRepo.getAll();
-  const prizes = ['Кухонная доска', 'Недельный абонемент'];
+// Функция для проверки, находится ли пользователь в группе
+async function isUserInGroup(userId: string): Promise<boolean> {
+  try {
+    // и в dev и в prod режимах необходимо получить из реальной группы сообщества
+    const bot = MODE_IS_PROD ? BOT : new Telegraf(getEnvVar('MEMBERS_BOT_TOKEN'));
+    const groupId = MODE_IS_PROD ? DEDOK_GROUP_ID : getEnvVar('DEDOK_GROUP_ID');
 
-  // Фильтруем пользователей, исключая игнорируемых
-  const eligibleUsers = Object.values(allUsers).filter(user => !IGNORE_USERS_LIST.includes(user.id));
+    const member = await bot.telegram.getChatMember(groupId, +userId);
+    return ['member', 'administrator', 'creator'].includes(member.status);
+  } catch (error) {
+    console.error(`Ошибка при проверке пользователя ${userId}:`, error);
+    return false;
+  }
+}
+
+async function actionsBotResult(prizes: string[]): Promise<void> {
+  const allUsers = await userRepo.getAll();
+
+  // Фильтруем пользователей, исключая игнорируемых и тех, кто не в группе
+  const eligibleUsers = (await Promise.all(
+    Object.values(allUsers).map(async (user) => {
+      if (IGNORE_USERS_LIST.includes(user.id)) return null;
+      const isInGroup = await isUserInGroup(user.id);
+      return isInGroup ? user : null;
+    })
+  )).filter(user => user !== null) as UserData[];
 
   // Считаем вес для каждого пользователя
-  const usersWithWeight = calculateWeights(eligibleUsers);
+  const usersWithWeight = await calculateWeights(eligibleUsers);
 
   // Назначаем номера (лотерейные билеты) для каждого пользователя
   const usersWithTickets = assignTicketNumbers(usersWithWeight);
@@ -29,35 +50,51 @@ async function actionsBotResult(): Promise<void> {
   // Выводим информацию об участниках
   let membersMsg = "Участники розыгрыша:\n";
   usersWithTickets.forEach(user => {
-    membersMsg += `- ${user.firstName}, приглашенных: ${user.weight - 1}, вес: ${user.weight}, номера: ${user.ticketRange[0]}-${user.ticketRange[1]}\n`;
+    const ticketRange = user.weight === 1 
+      ? `номер: ${user.ticketRange[0]}` 
+      : `номера: ${user.ticketRange[0]}-${user.ticketRange[1]}`;
+    membersMsg += `  - ${user.firstName}, привел(а): ${user.weight - 1}, вес: ${user.weight}, ${ticketRange}\n`;
   });
   await sendTelegramMessage(membersMsg);
 
   // Проводим розыгрыш для каждого приза
+  let remainingUsers = [...usersWithTickets]; // Копируем массив участников
   for (let prize of prizes) {
+    if (remainingUsers.length === 0) {
+      await sendTelegramMessage(`\nНет участников для розыгрыша приза: ${prize}`);
+      continue;
+    }
+
     let prizeMsg = `\nНачало розыгрыша приза: ${prize}`;
-    const { winner, winningNumber } = pickPrizeWinner(usersWithTickets);
+    const { winner, winningNumber } = pickPrizeWinner(remainingUsers);
     prizeMsg += `\nВыпавший номер: ${winningNumber}\n`;
     prizeMsg += `Поздравляем, ${winner.firstName} выиграл(а) "${prize}"!`;
     await sendTelegramMessage(prizeMsg);
-  };
+
+    // Удаляем победителя из списка участников
+    remainingUsers = remainingUsers.filter(user => user.id !== winner.id);
+  }
 }
 
 // Функция для расчета веса пользователей
-function calculateWeights(users: UserData[]): UserWithWeight[] {
+async function calculateWeights(users: UserData[]): Promise<UserWithWeight[]> {
   const userMap: Record<string, UserWithWeight> = {};
 
   // Инициализация пользователей с базовым весом 1
-  users.forEach(user => {
+  for (const user of users) {
     userMap[user.id] = { ...user, weight: 1, ticketRange: [0, 0] };
-  });
+  }
 
   // Увеличение веса на основе приглашенных пользователей
-  users.forEach(user => {
+  for (const user of users) {
     if (user.invitedBy && userMap[user.invitedBy]) {
-      userMap[user.invitedBy].weight += 1;
+      // Проверяем, находится ли приглашенный в группе
+      const isInvitedInGroup = await isUserInGroup(user.id);
+      if (isInvitedInGroup) {
+        userMap[user.invitedBy].weight += 1;
+      }
     }
-  });
+  }
 
   return Object.values(userMap);
 }
@@ -98,11 +135,11 @@ function pickPrizeWinner(users: UserWithWeight[]): { winner: UserWithWeight; win
   return { winner: users[0], winningNumber: 1 };
 }
 
-// Пример функции для отправки сообщения в Telegram (заглушка)
+// Функция для отправки сообщения в Telegram
 async function sendTelegramMessage(message: string): Promise<void> {
   await BOT.telegram.sendMessage(DEDOK_GROUP_ID, message, {
     message_thread_id: DEDOK_ACTIONS_TOPIC_ID,
-  })
+  });
 }
 
-actionsBotResult();
+actionsBotResult(['Кухонная доска', 'Недельный абонемент']);
